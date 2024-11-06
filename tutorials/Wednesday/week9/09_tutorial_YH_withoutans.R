@@ -1,5 +1,5 @@
-# Applied Statistical Analysis I      
-# Tutorial 8: Multiple regression                 
+# Applied Statistical Analysis I/Quantitative Methods I     
+# Tutorial 9: Multivariable Regression 2                   
 
 
 # Remove objects
@@ -62,6 +62,7 @@ head(wb)
 # Load Quality of Government data
 qog <- read_csv("https://www.qogdata.pol.gu.se/data/qog_bas_ts_jan23.csv")
 write.csv(qog, "qog.csv")
+qog <- read_csv("qog.csv")
 # How can we combine data from different sources?
 # https://guides.nyu.edu/quant/merge
 
@@ -107,6 +108,7 @@ write.csv(ucdp, "ucdp_ged231.csv")
 # UCDP Georeferenced Event Dataset (GED)
 # https://ucdp.uu.se/downloads/index.html#ged_global
 View(ucdp)
+
 
 # Other common data sources:  
 # Afrobarometer (survey), https://www.afrobarometer.org/
@@ -213,14 +215,7 @@ df_mean_inc <- summarize(df_grouped,
 df_mean_inc
 
 # What about missing values?
-?mean
-# Get the mean income and max child mortality for each year
-df_grouped <- group_by(df, date) # Group by year
-df_mean_inc <- summarize(df_grouped, 
-                         n=n(), # Counts
-                         mean_inc=mean(gdp_per_cap, na.rm=TRUE), # Mean
-                         max_mort=max(mort)) # Max
-df_mean_inc
+
 
 # Check if df has missing values
 sum(is.na(df$gdp_per_cap))
@@ -253,6 +248,7 @@ df_na <- mutate(df_na, # Replace with mean if value is missing
 # --> if is.na is True, replace with mean,
 # if is.na is False, replace with value
 
+
 # Re-coding variables, in Base R
 # Create categorical income variable
 df_na$income_group <- rep(0, dim(df_na)[1]) # Create empty variable
@@ -261,9 +257,9 @@ summary(df_na$gdp_per_cap)[2] #763.0543
 summary(df_na$gdp_per_cap)[3] #3099.442 
 summary(df_na$gdp_per_cap)[4]
 summary(df_na$gdp_per_cap)[5]
-df_na$income_group[df_na$gdp_per_cap>summary(df_na$gdp_per_cap)[2]] <- 1 # Replace step by step
-df_na$income_group[df_na$gdp_per_cap>summary(df_na$gdp_per_cap)[3]] <- 2
-df_na$income_group[df_na$gdp_per_cap>summary(df_na$gdp_per_cap)[5]] <- 3
+df_na$income_group[df_na$gdp_per_cap>=summary(df_na$gdp_per_cap)[2]] <- 1 # Replace step by step
+df_na$income_group[df_na$gdp_per_cap>=summary(df_na$gdp_per_cap)[3]] <- 2
+df_na$income_group[df_na$gdp_per_cap>=summary(df_na$gdp_per_cap)[5]] <- 3
 
 # Convert into factor
 typeof(df_na$income_group)
@@ -274,29 +270,35 @@ is.factor(df_na$income_group)
 levels(df_na$income_group)
 unique(df_na$income_group)
 table(df_na$income_group)
+summary(df_na$income_group)
+
+plot(df_na$income_group,df_na$gdp_per_cap)
 
 # Re-coding variables, in tidyverse
 # Create categorical income variable
-quantile(df_na$gdp_per_cap) # Check quantiles
-df_na <- mutate(df_na, income_group2 = cut(gdp_per_cap, 
-                                       breaks = quantile(gdp_per_cap),
-                                       labels = c("low","medium_low","medium_high","high")))
+
+df_na$income_group2 <- cut(df_na$gdp_per_cap, 
+                                           breaks = 4, 
+                                           labels = c("low","medium_low","medium_high","high"))
+
+plot(df_na$income_group2,df_na$gdp_per_cap)
+
 
 typeof(df_na$income_group2)
 is.factor(df_na$income_group2)
 
 summary(df_na$income_group2)
 
-head(df_na[is.na(df_na$income_group2) == TRUE, ][, 2:13])
-
-df_na$income_group2[is.na(df_na$income_group2) == TRUE] <- "low"
+head(df_na[is.na(df_na$income_group2) == TRUE, ])
 
 summary(df_na$income_group2)
 
+
 # Step by step: 
+summary(df_na$gdp_per_cap)
 cut(df_na$gdp_per_cap, breaks=c(0,600,800,Inf)) # Define breaks
-cut(df_na$gdp_per_cap, breaks=quantile(df_na$gdp_per_cap)) # Use quantiles as breaks
-cut(df_na$gdp_per_cap, breaks=quantile(df_na$gdp_per_cap),
+cut(df_na$gdp_per_cap, breaks= 4)
+cut(df_na$gdp_per_cap, breaks= 4, 
                        labels=c("low","medium_low","medium_high","high")) # Add labels
 
 # Drop missing values 
@@ -446,6 +448,16 @@ scatter_lngdppc_mort <-
   geom_smooth(method='lm',col="black") # Add regression line
 scatter_lngdppc_mort
 
+
+scatter_lngdppc_mort <-
+  ggplot(data = df_na, 
+         mapping = aes(x = income_group2,
+                       y = mort)) + 
+  geom_point() +
+  geom_smooth(method='lm',col="black") # Add regression line
+scatter_lngdppc_mort
+
+
 # Create a new "scatter plot", which differentiates between
 # democracies and autocracies. Add the regression lines. 
 
@@ -483,6 +495,8 @@ model$coefficients[1]+model$coefficients[2]
 
 # (d.) Regression analysis -----
 
+df_na <- na.omit(df_na)
+
 # Fit model
 model <- lm(mort ~ gdp_per_cap, data=df_na)
 summary(model)
@@ -490,9 +504,9 @@ summary(model)
 # Re-scale income
 df_na$gdp_per_cap_1000 <- df_na$gdp_per_cap/1000
 model_mort_gdppc1000 <- lm(mort ~ gdp_per_cap_1000, data=df_na)
-summary(mort_gdppc1000)
+summary(model_mort_gdppc1000)
 
-stargazer(mort_gdppc1000)
+stargazer(model_mort_gdppc1000)
 
 # Export Latex table 
 output_stargazer <- function(outputFile, ...) {
@@ -506,8 +520,28 @@ output_stargazer("mort_gdppc1000.tex", mort_gdppc1000)
 # How to include a categorical independent variable?
 
 # Fit model
-model_mort_dem <- lm(mort ~ democracy, data=df_na)
-summary(model_mort_dem)
+model_mort_gdp1000_dem <- lm(mort ~ gdp_per_cap_1000 + democracy, data=df_na)
+summary(model_mort_gdp1000_dem)
+
+anova(model_mort_gdp1000_dem)
+
+
+anova(model, model_mort_gdp1000_dem, test = "F")
+
+model_mort_gdp1000_dem$coefficients
+
+scatter_dem_mort <-
+  ggplot(data = df_na, 
+         mapping = aes(x = gdp_per_cap_1000, # Over regime type
+                       y = mort, 
+                       col = factor(democracy))) + 
+  geom_point() +
+  geom_smooth(method='lm',col="black") + 
+  geom_hline(yintercept=model_mort_gdp1000_dem$coefficients[1],col="red") + # Autocracies
+  geom_hline(yintercept=model_mort_gdp1000_dem$coefficients[1]+model_mort_gdp1000_dem$coefficients[3],col="turquoise") # Democracies
+scatter_dem_mort
+
+
 
 # Exercise D -----------------
 
@@ -515,26 +549,20 @@ summary(model_mort_dem)
 # What is you research question? How would you present
 # your results?
 
+
 # What is the relationship between income and armed conflict?
-model <- lm(best~gdp_per_cap, data=df_na)
-summary(model)
-
-model <- lm(best~gdp_per_cap_1000, data=df_na)
-summary(model)
-
-# Export regression table
-stargazer(model)
 
 
-# Scatter plot
-scatter_gdppc_best <-
-  ggplot(data = df_na, 
-         mapping = aes(x = gdp_per_cap_1000,
-                       y = best)) + 
-  geom_point() +
-  geom_smooth(method='lm',col="black")
 
-scatter_gdppc_best
+
+# How about the role of the regime type?
+
+
+
+
+
+
+
 
 
 
